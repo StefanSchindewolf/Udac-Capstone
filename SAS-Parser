@@ -1,11 +1,15 @@
-def get_sas_definitions(df, file):
+def get_sas_definitions(file):
     data_dict = dict()
+    parameters = dict()
+    confline = False
     multiline = False
+    varname = ''
     with open(file,mode='r') as f:
         for line in f.read().splitlines():
             #logging.info(line)
             # Recognize data field descriptions by "/*" at the start of the line
             # If we have the separator at beginning and end then we can store a variable
+            line = line.strip()
             if ((line.startswith('/* ')) and (line.endswith(' */'))):
                 multiline = False
                 line = line.lstrip('/* ').rstrip(' */')
@@ -26,9 +30,14 @@ def get_sas_definitions(df, file):
             elif line.startswith('/* '):
                 multiline = True
                 line = line.lstrip('/* ').rstrip()
-                splitted = line.split(sep='-')
-                colnames = splitted[0].strip().lower()
-                desc = splitted[1].strip()
+                try:
+                    splitted = line.split(sep='-', maxsplit=1)
+                    colnames = splitted[0].strip().lower()
+                    desc = splitted[1].strip()
+                except:
+                    splitted = line.split(sep=' ', maxsplit=1)
+                    colnames = splitted[0].strip().lower()
+                    desc = splitted[1].strip()
                 if '&' in colnames:
                     colnames = colnames.split(sep='&')
                     for cn in colnames:
@@ -40,7 +49,19 @@ def get_sas_definitions(df, file):
                     log.info('Found Field Description for column {}: {}'.format(colnames, desc))
             else:
                 # If a multiline description was started then just append the line
-                if multiline == True and line.endswith(' */'):
+                if (multiline == True and line.endswith(' */') == True):
+                    multiline = False
+                    line = line.lstrip('/* ').rstrip()
+                    if '&' in colnames:
+                        colnames = colnames.split(sep='&').lower()
+                        for cn in colnames:
+                            cn = cn.strip()
+                            data_dict[cn] = data_dict[cn] + line
+                            log.info('Appending Field Description for column {}'.format(cn))
+                    else:
+                        data_dict[colnames] = data_dict[colnames] + desc
+                        log.info('Appending Field Description for column {}'.format(colnames))
+                elif (multiline == True and line.endswith(' */') == False):
                     multiline = True
                     line = line.lstrip('/* ').rstrip()
                     if '&' in colnames:
@@ -52,6 +73,23 @@ def get_sas_definitions(df, file):
                     else:
                         data_dict[colnames] = data_dict[colnames] + desc
                         log.info('Appending Field Description for column {}'.format(colnames))
+                elif line.startswith('value'):
+                    confline = True
+                    parameters = dict()
+                    line = line.split(' ')
+                    varname = line[1].rstrip('l')
+                elif ('=' in line and confline == True):
+                    line = line.split('=')
+                    key = line[0].strip().strip('\'')
+                    value = line[1].strip().strip('\'')
+                    data_dict[(varname, key)] = value
+                    logging.info('Getting parameter value for variable {}: {} {}'.format(varname, key, value))
+                elif len(line) == 0:
+                    confline = False
+                else:
+                    next
+                    #value_dict[varname] = parameters
     return data_dict
 
-new_dict = get_sas_definitions(imm_df, 'I94_SAS_Labels_Descriptions.SAS')
+new_dict = get_sas_definitions('I94_SAS_Labels_Descriptions.SAS')
+display(new_dict)
