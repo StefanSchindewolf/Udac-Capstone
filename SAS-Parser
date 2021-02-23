@@ -1,15 +1,27 @@
 def get_sas_definitions(file):
+    """ Checks a given .SAS file line by line searching for text patterns.
+        Idenfified variables are collected in a dictionary.
+        Value constraints are stored as <variable label>+'l'
+        
+        Returns:  dict with variables, variable discriptions 
+                  and value constraints
+    
+    """
+    # Empty dict to return
     data_dict = dict()
-    parameters = dict()
+    # Flag if we found a single line variable description
     confline = False
+    # Flag if we found a multiple line variable description
     multiline = False
+    # Placeholder for variable name
     varname = ''
+    
     with open(file,mode='r') as f:
         for line in f.read().splitlines():
-            #logging.info(line)
-            # Recognize data field descriptions by "/*" at the start of the line
-            # If we have the separator at beginning and end then we can store a variable
             line = line.strip()
+            # Recognize data variable descriptions by "/*" at the start of the line
+            
+            # If we have the separator at beginning and end then we can store a variable
             if ((line.startswith('/* ')) and (line.endswith(' */'))):
                 multiline = False
                 line = line.lstrip('/* ').rstrip(' */')
@@ -25,6 +37,7 @@ def get_sas_definitions(file):
                 else:
                     data_dict[colnames] = desc
                     log.info('Found Field Description for column {}: {}'.format(colnames, desc))
+            
             # If its just the start of a multiline description then store the first part
             # of the description and set the multiline flag
             elif line.startswith('/* '):
@@ -61,6 +74,7 @@ def get_sas_definitions(file):
                     else:
                         data_dict[colnames] = data_dict[colnames] + desc
                         log.info('Appending Field Description for column {}'.format(colnames))
+                # Except its the end of the multiline description
                 elif (multiline == True and line.endswith(' */') == False):
                     multiline = True
                     line = line.lstrip('/* ').rstrip()
@@ -73,23 +87,22 @@ def get_sas_definitions(file):
                     else:
                         data_dict[colnames] = data_dict[colnames] + desc
                         log.info('Appending Field Description for column {}'.format(colnames))
+                # The term "value" marks the beginning of a value constraint section
                 elif line.startswith('value'):
                     confline = True
                     parameters = dict()
                     line = line.split(' ')
                     varname = line[1].rstrip('l')
+                # In the section each constraint is assigned with a "="
                 elif ('=' in line and confline == True):
                     line = line.split('=')
                     key = line[0].strip().strip('\'')
                     value = line[1].strip().strip('\'')
                     data_dict[(varname, key)] = value
                     logging.info('Getting parameter value for variable {}: {} {}'.format(varname, key, value))
+                # An empty line marks the end of the constraint section
                 elif len(line) == 0:
                     confline = False
                 else:
                     next
-                    #value_dict[varname] = parameters
     return data_dict
-
-new_dict = get_sas_definitions('I94_SAS_Labels_Descriptions.SAS')
-display(new_dict)
