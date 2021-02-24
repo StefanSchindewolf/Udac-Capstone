@@ -1,3 +1,8 @@
+import pandas as pd
+import numpy as np
+import logging
+import sys
+
 def get_sas_definitions(file):
     """ Checks a given .SAS file line by line searching for text patterns.
         Idenfified variables are collected in a dictionary.
@@ -106,3 +111,6 @@ def get_sas_definitions(file):
                 else:
                     next
     return data_dict
+
+if __name__ == "__main__":
+    main()
