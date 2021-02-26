@@ -66,10 +66,13 @@ def get_sas_definitions(file):
                     data_dict[colnames] = desc
                     log.info('Found Field Description for column {}: {}'.format(colnames, desc))
             else:
-                # If a multiline description was started then just append the line
+                # Check first if a multiline description was started
+                # and if it ends with this line
                 if (multiline == True and line.endswith(' */') == True):
                     multiline = False
-                    line = line.lstrip('/* ').rstrip()
+                    # Remove closing string
+                    line = line.rstrip(' */').rstrip()
+                    # In case we have 2 variables to fill, do it
                     if '&' in colnames:
                         colnames = colnames.split(sep='&').lower()
                         for cn in colnames:
@@ -77,17 +80,19 @@ def get_sas_definitions(file):
                             data_dict[cn] = data_dict[cn] + line
                             log.info('Appending Field Description for column {}'.format(cn))
                     else:
+                        # If only 1 variable, just store it
                         data_dict[colnames] = data_dict[colnames] + desc
                         log.info('Appending Field Description for column {}'.format(colnames))
-                # Except its the end of the multiline description
+                
+                # Check if its the middle of a multiline description
                 elif (multiline == True and line.endswith(' */') == False):
+                    desc = line
                     multiline = True
-                    line = line.lstrip('/* ').rstrip()
                     if '&' in colnames:
                         colnames = colnames.split(sep='&').lower()
                         for cn in colnames:
                             cn = cn.strip()
-                            data_dict[cn] = data_dict[cn] + line
+                            data_dict[cn] = data_dict[cn] + desc
                             log.info('Appending Field Description for column {}'.format(cn))
                     else:
                         data_dict[colnames] = data_dict[colnames] + desc
