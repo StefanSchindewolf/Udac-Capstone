@@ -22,7 +22,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": 2,
+   "execution_count": 1,
    "metadata": {
     "editable": true
    },
@@ -105,7 +105,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": 19,
+   "execution_count": 2,
    "metadata": {
     "editable": true
    },
@@ -330,7 +330,7 @@
        "4   17.0  2016.0     4.0   101.0   101.0     NYC  20545.0      1.0      MA  20567.0     4.0      2.0    1.0  20160401      NaN   NaN       O       O     NaN       M   2012.0  09302016    NaN    NaN      AA  9.246846e+10  00199       B2"
       ]
      },
-     "execution_count": 19,
+     "execution_count": 2,
      "metadata": {},
      "output_type": "execute_result"
     }
@@ -357,10 +357,26 @@
    },
    "source": [
     "**Notes:**\n",
-    "- SAS import was first reduced in size using \"chunksize\" parameter, so that we have handy 2.000 lines\n",
-    "- In total 28 columns exist, 15 columns contain strings (object type) and 13 contain numbers (float64 type)\n",
+    "- We are not importing everything here, since the files amount to about 6GB in total\n",
+    "- Using \"chunksize\" parameter and then breaking from the loop, so that we have handy **2.000 lines\n",
+    "- In total 28 columns exist, 15 columns contain strings (object type) and 13 contain numbers (float64 type)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "editable": true
+   },
+   "source": [
+    "### Field Description File Analysis\n",
     "\n",
-    "| Variable name | Data Type | Description |\n",
+    "The workspace contains a field description file for the dataset named `I94_SAS_Labels_Descriptions.SAS`\n",
+    "\n",
+    "The file seems pretty well structured, so I wrote a quick parser to automatically check the description file (see [SAS-Description-Parser](https://r766466c839826xjupyterlnnfq3jud.udacity-student-workspaces.com/lab/tree/SAS-Description-Parser.ipynb) for further details).\n",
+    "\n",
+    "**Definitions**\n",
+    "\n",
+    "| **Variable name** | **Data Type** | **Description** |\n",
     "|---------------|---------------|---------------|\n",
     "| i94yr | float64 | 4 digit year |\n",
     "| i94mon | float64 | Numeric month |\n",
@@ -390,18 +406,15 @@
     "| fltno | object | Flight number of Airline used to arrive in U.S. |\n",
     "| visatype | object | Class of admission legally admitting the non |\n",
     "\n",
-    "- Columns i94cnty, i94port, i94mode, i94addr have value constraints\n",
-    "-- i94cnty contains "
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {
-    "editable": true
-   },
-   "source": [
-    "#### Description file findings\n",
-    "We write a quick parser to automatically check the description file.\n"
+    "**Value constraints**\n",
+    "\n",
+    "Columns `i94cnty, i94port, i94mode, i94addr` have value constraints (lists with allowed entry values) which are outlined here:\n",
+    "* `i94cnty` contains country short codes and their corresponding state names\n",
+    "* `i94port`contains port/airport codes from various cities\n",
+    "    * There doesn't seem to be a specific selection criteria\n",
+    "    * Although most of the codes are cities in the US we also see city codes from Europe and Asia\n",
+    "* `i94mode` is a code for the way of travelling (by Air, by Sea or by Land) or unknown\n",
+    "* `i94addr`is a code for the state in which this immigrants temporary address is located\n"
    ]
   },
   {
@@ -617,8 +630,19 @@
    },
    "source": [
     "**Notes:**\n",
-    "- The following columns appear to indicate datetime related values:      *'i94yr', 'i94mon', 'arrdate', 'depdate', 'dtadfile', 'dtaddto'*\n",
-    "-- i94yr"
+    "* The following columns appear to indicate datetime related values:\n",
+    "    * 'i94yr' indicating the year the I94 form was filled and 'i94mon' indicating the month\n",
+    "    * 'arrdate' is the immigrants arrival date\n",
+    "    * 'depdate' the date of the immigrants (planned) departure\n",
+    "    * 'dtadfile' is the date on which the form was entered into the database\n",
+    "    * 'dtaddto' is the date the immigrant is admissioned to stay in the US\n",
+    "* i94mode has already been identified as a category variable, the integers here are just codes indicating if the immigrant travelled by Land, Air or Sea (or unknown)\n",
+    "* `i94visa`was not identified correctly by my parser it seems, it also has value constraints\n",
+    "    * 1 = Business\n",
+    "    * 2 = Pleasure\n",
+    "    * 3 = Student\n",
+    "* Other fields:\n",
+    "    * `admnum` is the admission number\n"
    ]
   },
   {
@@ -723,6 +747,8 @@
    ],
    "source": [
     "sas_df_datetime_columns = ['i94yr', 'i94mon', 'arrdate', 'depdate', 'dtadfile', 'dtaddto']\n",
+    "sas_df_category_columns = ['i94mode']\n",
+    "\n",
     "sas_df_type = {\n",
     "'cicid':'int',\n",
     "'i94yr':'int',\n",
