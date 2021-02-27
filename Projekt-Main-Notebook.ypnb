@@ -1,0 +1,1016 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "editable": true
+   },
+   "source": [
+    "# Project Title\n",
+    "### Data Engineering Capstone Project\n",
+    "\n",
+    "#### Project Summary\n",
+    "--describe your project at a high level--\n",
+    "\n",
+    "The project follows the follow steps:\n",
+    "* Step 1: Scope the Project and Gather Data\n",
+    "* Step 2: Explore and Assess the Data\n",
+    "* Step 3: Define the Data Model\n",
+    "* Step 4: Run ETL to Model the Data\n",
+    "* Step 5: Complete Project Write Up"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {
+    "editable": true
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<style>.container { width:100% !important; }</style>"
+      ],
+      "text/plain": [
+       "<IPython.core.display.HTML object>"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "# Do all imports and installs here\n",
+    "import pandas as pd\n",
+    "import numpy as np\n",
+    "import logging\n",
+    "import sys\n",
+    "\n",
+    "# Logging\n",
+    "logging.basicConfig(\n",
+    "    level=logging.ERROR,\n",
+    "    format='%(asctime)s %(levelname)s \\t %(message)s ',\n",
+    "    datefmt='%Y-%m-%d %H:%M:%S',\n",
+    "    stream=sys.stdout,\n",
+    ")\n",
+    "log = logging.getLogger('log')\n",
+    "\n",
+    "# Improve view\n",
+    "from IPython.core.display import display, HTML\n",
+    "display(HTML(\"<style>.container { width:100% !important; }</style>\"))\n",
+    "pd.set_option('display.max_rows', 500)\n",
+    "pd.set_option('display.max_columns', 500)\n",
+    "pd.set_option('display.width', 1000)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "editable": true
+   },
+   "source": [
+    "### Step 1: Scope the Project and Gather Data\n",
+    "\n",
+    "#### Scope \n",
+    "Explain what you plan to do in the project in more detail. What data do you use? What is your end solution look like? What tools did you use? etc>\n",
+    "\n",
+    "#### Describe and Gather Data \n",
+    "Describe the data sets you're using. Where did it come from? What type of information is included? "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "editable": true
+   },
+   "source": [
+    "#### Data Gathering Description (Step 1)\n",
+    "The dataset provided contains immigration data provided by US immigration authorities. Data is collected via form **I94** and contains data about people travelling from and to the US on people who are either **non United States citizens** or **lawful permanent residents** in the US.\n",
+    "\n",
+    "    “Form I-94, the Arrival-Departure Record Card, is a form used by the U.S. Customs and Border Protection (CBP) intended to keep track of the arrival and departure to/from the United States of people who are not United States citizens or lawful permanent residents (with the exception of those who are entering using the Visa Waiver Program or Compact of Free Association, using Border Crossing Cards, re-entering via automatic visa revalidation, or entering temporarily as crew members)” (https://en.wikipedia.org/wiki/Form_I-94)\n",
+    "\n",
+    "Data files and formats:\n",
+    "- Data files are stored in SAS (proprietary?) sas7bdat format\n",
+    "- Per year a folder exists\n",
+    "- Per month a file exists (~500 GB)\n",
+    "\n",
+    "Description file:\n",
+    "- A description file for the fields was included, named *I94_SAS_Labels_Descriptions.SAS*\n",
+    "- The file contains field descriptions for each column\n",
+    "- And it contains value constraints for some columns, namely: *i94cnty, i94port, i94mode, i94addr*\n",
+    "\n",
+    "#### First read"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 19,
+   "metadata": {
+    "editable": true
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>cicid</th>\n",
+       "      <th>i94yr</th>\n",
+       "      <th>i94mon</th>\n",
+       "      <th>i94cit</th>\n",
+       "      <th>i94res</th>\n",
+       "      <th>i94port</th>\n",
+       "      <th>arrdate</th>\n",
+       "      <th>i94mode</th>\n",
+       "      <th>i94addr</th>\n",
+       "      <th>depdate</th>\n",
+       "      <th>i94bir</th>\n",
+       "      <th>i94visa</th>\n",
+       "      <th>count</th>\n",
+       "      <th>dtadfile</th>\n",
+       "      <th>visapost</th>\n",
+       "      <th>occup</th>\n",
+       "      <th>entdepa</th>\n",
+       "      <th>entdepd</th>\n",
+       "      <th>entdepu</th>\n",
+       "      <th>matflag</th>\n",
+       "      <th>biryear</th>\n",
+       "      <th>dtaddto</th>\n",
+       "      <th>gender</th>\n",
+       "      <th>insnum</th>\n",
+       "      <th>airline</th>\n",
+       "      <th>admnum</th>\n",
+       "      <th>fltno</th>\n",
+       "      <th>visatype</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>6.0</td>\n",
+       "      <td>2016.0</td>\n",
+       "      <td>4.0</td>\n",
+       "      <td>692.0</td>\n",
+       "      <td>692.0</td>\n",
+       "      <td>XXX</td>\n",
+       "      <td>20573.0</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>37.0</td>\n",
+       "      <td>2.0</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>T</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>U</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>1979.0</td>\n",
+       "      <td>10282016</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>1.897628e+09</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>B2</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>7.0</td>\n",
+       "      <td>2016.0</td>\n",
+       "      <td>4.0</td>\n",
+       "      <td>254.0</td>\n",
+       "      <td>276.0</td>\n",
+       "      <td>ATL</td>\n",
+       "      <td>20551.0</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>AL</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>25.0</td>\n",
+       "      <td>3.0</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>20130811</td>\n",
+       "      <td>SEO</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>G</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>Y</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>1991.0</td>\n",
+       "      <td>D/S</td>\n",
+       "      <td>M</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>3.736796e+09</td>\n",
+       "      <td>00296</td>\n",
+       "      <td>F1</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>15.0</td>\n",
+       "      <td>2016.0</td>\n",
+       "      <td>4.0</td>\n",
+       "      <td>101.0</td>\n",
+       "      <td>101.0</td>\n",
+       "      <td>WAS</td>\n",
+       "      <td>20545.0</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>MI</td>\n",
+       "      <td>20691.0</td>\n",
+       "      <td>55.0</td>\n",
+       "      <td>2.0</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>20160401</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>T</td>\n",
+       "      <td>O</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>M</td>\n",
+       "      <td>1961.0</td>\n",
+       "      <td>09302016</td>\n",
+       "      <td>M</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>OS</td>\n",
+       "      <td>6.666432e+08</td>\n",
+       "      <td>93</td>\n",
+       "      <td>B2</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>16.0</td>\n",
+       "      <td>2016.0</td>\n",
+       "      <td>4.0</td>\n",
+       "      <td>101.0</td>\n",
+       "      <td>101.0</td>\n",
+       "      <td>NYC</td>\n",
+       "      <td>20545.0</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>MA</td>\n",
+       "      <td>20567.0</td>\n",
+       "      <td>28.0</td>\n",
+       "      <td>2.0</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>20160401</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>O</td>\n",
+       "      <td>O</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>M</td>\n",
+       "      <td>1988.0</td>\n",
+       "      <td>09302016</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>AA</td>\n",
+       "      <td>9.246846e+10</td>\n",
+       "      <td>00199</td>\n",
+       "      <td>B2</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>17.0</td>\n",
+       "      <td>2016.0</td>\n",
+       "      <td>4.0</td>\n",
+       "      <td>101.0</td>\n",
+       "      <td>101.0</td>\n",
+       "      <td>NYC</td>\n",
+       "      <td>20545.0</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>MA</td>\n",
+       "      <td>20567.0</td>\n",
+       "      <td>4.0</td>\n",
+       "      <td>2.0</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>20160401</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>O</td>\n",
+       "      <td>O</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>M</td>\n",
+       "      <td>2012.0</td>\n",
+       "      <td>09302016</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>AA</td>\n",
+       "      <td>9.246846e+10</td>\n",
+       "      <td>00199</td>\n",
+       "      <td>B2</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "   cicid   i94yr  i94mon  i94cit  i94res i94port  arrdate  i94mode i94addr  depdate  i94bir  i94visa  count  dtadfile visapost occup entdepa entdepd entdepu matflag  biryear   dtaddto gender insnum airline        admnum  fltno visatype\n",
+       "0    6.0  2016.0     4.0   692.0   692.0     XXX  20573.0      NaN     NaN      NaN    37.0      2.0    1.0       NaN      NaN   NaN       T     NaN       U     NaN   1979.0  10282016    NaN    NaN     NaN  1.897628e+09    NaN       B2\n",
+       "1    7.0  2016.0     4.0   254.0   276.0     ATL  20551.0      1.0      AL      NaN    25.0      3.0    1.0  20130811      SEO   NaN       G     NaN       Y     NaN   1991.0       D/S      M    NaN     NaN  3.736796e+09  00296       F1\n",
+       "2   15.0  2016.0     4.0   101.0   101.0     WAS  20545.0      1.0      MI  20691.0    55.0      2.0    1.0  20160401      NaN   NaN       T       O     NaN       M   1961.0  09302016      M    NaN      OS  6.666432e+08     93       B2\n",
+       "3   16.0  2016.0     4.0   101.0   101.0     NYC  20545.0      1.0      MA  20567.0    28.0      2.0    1.0  20160401      NaN   NaN       O       O     NaN       M   1988.0  09302016    NaN    NaN      AA  9.246846e+10  00199       B2\n",
+       "4   17.0  2016.0     4.0   101.0   101.0     NYC  20545.0      1.0      MA  20567.0     4.0      2.0    1.0  20160401      NaN   NaN       O       O     NaN       M   2012.0  09302016    NaN    NaN      AA  9.246846e+10  00199       B2"
+      ]
+     },
+     "execution_count": 19,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# Read in the data here\n",
+    "# 1) From SAS only read 2.000 lines\n",
+    "sas_file =  '../../data/18-83510-I94-Data-2016/i94_apr16_sub.sas7bdat'\n",
+    "sas_df = pd.DataFrame()\n",
+    "i = 2\n",
+    "for chunk in pd.read_sas(sas_file, 'sas7bdat', encoding=\"ISO-8859-1\", chunksize=1000):\n",
+    "    sas_df = sas_df.append(chunk)\n",
+    "    i = i - 1\n",
+    "    if i == 0:\n",
+    "        break\n",
+    "\n",
+    "sas_df.head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "editable": true
+   },
+   "source": [
+    "**Notes:**\n",
+    "- SAS import was first reduced in size using \"chunksize\" parameter, so that we have handy 2.000 lines\n",
+    "- In total 28 columns exist, 15 columns contain strings (object type) and 13 contain numbers (float64 type)\n",
+    "\n",
+    "| Variable name | Data Type | Description |\n",
+    "|---------------|---------------|---------------|\n",
+    "| i94yr | float64 | 4 digit year |\n",
+    "| i94mon | float64 | Numeric month |\n",
+    "| i94cit | float64 | This format shows all the valid and invalid codes for processing |\n",
+    "| i94res | float64 | This format shows all the valid and invalid codes for processing |\n",
+    "| i94port | object | This format shows all the valid and invalid codes for processing |\n",
+    "| arrdate | float64 | is the Arrival Date in the USA. It is a SAS date numeric field that apermament format has not been applied.  Please apply whichever date formatpermament format has not been applied.  Please apply whichever date format |\n",
+    "| i94mode | float64 | There are missing values as well as not reported (9) |\n",
+    "| i94addr | object | There is lots of invalid codes in this variable and the list belowThere is lots of invalid codes in this variable and the list below |\n",
+    "| depdate | float64 | is the Departure Date from the USA. It is a SAS date numeric field thata permament format has not been applied.  Please apply whichever date formata permament format has not been applied.  Please apply whichever date format |\n",
+    "| i94bir | float64 | Age of Respondent in Years |\n",
+    "| i94visa | float64 | Visa codes collapsed into three categories:1 = Business2 = Pleasure3 = Student*/ |\n",
+    "| count | float64 | Used for summary statistics |\n",
+    "| dtadfile | object | Character Date Field |\n",
+    "| visapost | object | Department of State where where Visa was issued |\n",
+    "| occup | object | Occupation that will be performed in U.S. |\n",
+    "| entdepa | object | Arrival Flag |\n",
+    "| entdepd | object | Departure Flag |\n",
+    "| entdepu | object | Update Flag |\n",
+    "| matflag | object | Match flag |\n",
+    "| biryear | float64 | 4 digit year of birth |\n",
+    "| dtaddto | object | Character Date Field |\n",
+    "| gender | object | Non |\n",
+    "| insnum | object | INS number |\n",
+    "| airline | object | Airline used to arrive in U.S. |\n",
+    "| admnum | float64 | Admission Number |\n",
+    "| fltno | object | Flight number of Airline used to arrive in U.S. |\n",
+    "| visatype | object | Class of admission legally admitting the non |\n",
+    "\n",
+    "- Columns i94cnty, i94port, i94mode, i94addr have value constraints\n",
+    "-- i94cnty contains "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "editable": true
+   },
+   "source": [
+    "#### Description file findings\n",
+    "We write a quick parser to automatically check the description file.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "editable": true
+   },
+   "source": [
+    "#### Numeric columns findings"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "metadata": {
+    "editable": true
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>cicid</th>\n",
+       "      <th>i94yr</th>\n",
+       "      <th>i94mon</th>\n",
+       "      <th>i94cit</th>\n",
+       "      <th>i94res</th>\n",
+       "      <th>arrdate</th>\n",
+       "      <th>i94mode</th>\n",
+       "      <th>depdate</th>\n",
+       "      <th>i94bir</th>\n",
+       "      <th>i94visa</th>\n",
+       "      <th>count</th>\n",
+       "      <th>biryear</th>\n",
+       "      <th>admnum</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>count</th>\n",
+       "      <td>2000.000000</td>\n",
+       "      <td>2000.0</td>\n",
+       "      <td>2000.0</td>\n",
+       "      <td>2000.00000</td>\n",
+       "      <td>2000.000000</td>\n",
+       "      <td>2000.000000</td>\n",
+       "      <td>1999.000000</td>\n",
+       "      <td>1927.000000</td>\n",
+       "      <td>2000.000000</td>\n",
+       "      <td>2000.0000</td>\n",
+       "      <td>2000.0</td>\n",
+       "      <td>2000.000000</td>\n",
+       "      <td>2.000000e+03</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>mean</th>\n",
+       "      <td>1146.768000</td>\n",
+       "      <td>2016.0</td>\n",
+       "      <td>4.0</td>\n",
+       "      <td>104.16250</td>\n",
+       "      <td>111.666000</td>\n",
+       "      <td>20545.017000</td>\n",
+       "      <td>1.006003</td>\n",
+       "      <td>20556.293202</td>\n",
+       "      <td>38.968000</td>\n",
+       "      <td>1.9015</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>1977.032366</td>\n",
+       "      <td>5.909467e+10</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>std</th>\n",
+       "      <td>650.874837</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>13.60072</td>\n",
+       "      <td>54.716217</td>\n",
+       "      <td>0.640247</td>\n",
+       "      <td>0.077265</td>\n",
+       "      <td>16.081589</td>\n",
+       "      <td>17.266993</td>\n",
+       "      <td>0.3144</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>17.266996</td>\n",
+       "      <td>1.507924e+10</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>min</th>\n",
+       "      <td>6.000000</td>\n",
+       "      <td>2016.0</td>\n",
+       "      <td>4.0</td>\n",
+       "      <td>101.00000</td>\n",
+       "      <td>101.000000</td>\n",
+       "      <td>20545.000000</td>\n",
+       "      <td>1.000000</td>\n",
+       "      <td>20546.000000</td>\n",
+       "      <td>0.000000</td>\n",
+       "      <td>1.0000</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>1929.000733</td>\n",
+       "      <td>6.644910e+08</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>25%</th>\n",
+       "      <td>565.750000</td>\n",
+       "      <td>2016.0</td>\n",
+       "      <td>4.0</td>\n",
+       "      <td>103.00000</td>\n",
+       "      <td>103.000000</td>\n",
+       "      <td>20545.000000</td>\n",
+       "      <td>1.000000</td>\n",
+       "      <td>20550.000000</td>\n",
+       "      <td>26.000000</td>\n",
+       "      <td>2.0000</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>1964.000733</td>\n",
+       "      <td>5.542381e+10</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>50%</th>\n",
+       "      <td>1159.500000</td>\n",
+       "      <td>2016.0</td>\n",
+       "      <td>4.0</td>\n",
+       "      <td>104.00000</td>\n",
+       "      <td>104.000000</td>\n",
+       "      <td>20545.000000</td>\n",
+       "      <td>1.000000</td>\n",
+       "      <td>20552.000000</td>\n",
+       "      <td>39.000000</td>\n",
+       "      <td>2.0000</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>1977.000000</td>\n",
+       "      <td>5.543718e+10</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>75%</th>\n",
+       "      <td>1678.250000</td>\n",
+       "      <td>2016.0</td>\n",
+       "      <td>4.0</td>\n",
+       "      <td>104.00000</td>\n",
+       "      <td>104.000000</td>\n",
+       "      <td>20545.000000</td>\n",
+       "      <td>1.000000</td>\n",
+       "      <td>20558.000000</td>\n",
+       "      <td>52.000000</td>\n",
+       "      <td>2.0000</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>1990.000733</td>\n",
+       "      <td>5.545536e+10</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>max</th>\n",
+       "      <td>2302.000000</td>\n",
+       "      <td>2016.0</td>\n",
+       "      <td>4.0</td>\n",
+       "      <td>692.00000</td>\n",
+       "      <td>692.000000</td>\n",
+       "      <td>20573.000000</td>\n",
+       "      <td>2.000000</td>\n",
+       "      <td>20704.000000</td>\n",
+       "      <td>87.000000</td>\n",
+       "      <td>3.0000</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>2016.000733</td>\n",
+       "      <td>9.251651e+10</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "             cicid   i94yr  i94mon      i94cit       i94res       arrdate      i94mode       depdate       i94bir    i94visa   count      biryear        admnum\n",
+       "count  2000.000000  2000.0  2000.0  2000.00000  2000.000000   2000.000000  1999.000000   1927.000000  2000.000000  2000.0000  2000.0  2000.000000  2.000000e+03\n",
+       "mean   1146.768000  2016.0     4.0   104.16250   111.666000  20545.017000     1.006003  20556.293202    38.968000     1.9015     1.0  1977.032366  5.909467e+10\n",
+       "std     650.874837     0.0     0.0    13.60072    54.716217      0.640247     0.077265     16.081589    17.266993     0.3144     0.0    17.266996  1.507924e+10\n",
+       "min       6.000000  2016.0     4.0   101.00000   101.000000  20545.000000     1.000000  20546.000000     0.000000     1.0000     1.0  1929.000733  6.644910e+08\n",
+       "25%     565.750000  2016.0     4.0   103.00000   103.000000  20545.000000     1.000000  20550.000000    26.000000     2.0000     1.0  1964.000733  5.542381e+10\n",
+       "50%    1159.500000  2016.0     4.0   104.00000   104.000000  20545.000000     1.000000  20552.000000    39.000000     2.0000     1.0  1977.000000  5.543718e+10\n",
+       "75%    1678.250000  2016.0     4.0   104.00000   104.000000  20545.000000     1.000000  20558.000000    52.000000     2.0000     1.0  1990.000733  5.545536e+10\n",
+       "max    2302.000000  2016.0     4.0   692.00000   692.000000  20573.000000     2.000000  20704.000000    87.000000     3.0000     1.0  2016.000733  9.251651e+10"
+      ]
+     },
+     "execution_count": 9,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "sas_df.describe()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "editable": true
+   },
+   "source": [
+    "**Notes:**\n",
+    "- The following columns appear to indicate datetime related values:      *'i94yr', 'i94mon', 'arrdate', 'depdate', 'dtadfile', 'dtaddto'*\n",
+    "-- i94yr"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 35,
+   "metadata": {
+    "editable": true
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>i94yr</th>\n",
+       "      <th>i94mon</th>\n",
+       "      <th>arrdate</th>\n",
+       "      <th>depdate</th>\n",
+       "      <th>dtadfile</th>\n",
+       "      <th>dtaddto</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>2016</td>\n",
+       "      <td>4</td>\n",
+       "      <td>1960-01-01 00:00:00.000020544</td>\n",
+       "      <td>1960-01-01 00:00:00.000000000</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>10282016.0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>2016</td>\n",
+       "      <td>4</td>\n",
+       "      <td>1960-01-01 00:00:00.000020544</td>\n",
+       "      <td>1960-01-01 00:00:00.000000000</td>\n",
+       "      <td>20130811.0</td>\n",
+       "      <td>0.0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>2016</td>\n",
+       "      <td>4</td>\n",
+       "      <td>1960-01-01 00:00:00.000020544</td>\n",
+       "      <td>1960-01-01 00:00:00.000020672</td>\n",
+       "      <td>20160401.0</td>\n",
+       "      <td>9302016.0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>2016</td>\n",
+       "      <td>4</td>\n",
+       "      <td>1960-01-01 00:00:00.000020544</td>\n",
+       "      <td>1960-01-01 00:00:00.000020544</td>\n",
+       "      <td>20160401.0</td>\n",
+       "      <td>9302016.0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>2016</td>\n",
+       "      <td>4</td>\n",
+       "      <td>1960-01-01 00:00:00.000020544</td>\n",
+       "      <td>1960-01-01 00:00:00.000020544</td>\n",
+       "      <td>20160401.0</td>\n",
+       "      <td>9302016.0</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "   i94yr  i94mon                       arrdate                       depdate    dtadfile     dtaddto\n",
+       "0   2016       4 1960-01-01 00:00:00.000020544 1960-01-01 00:00:00.000000000         0.0  10282016.0\n",
+       "1   2016       4 1960-01-01 00:00:00.000020544 1960-01-01 00:00:00.000000000  20130811.0         0.0\n",
+       "2   2016       4 1960-01-01 00:00:00.000020544 1960-01-01 00:00:00.000020672  20160401.0   9302016.0\n",
+       "3   2016       4 1960-01-01 00:00:00.000020544 1960-01-01 00:00:00.000020544  20160401.0   9302016.0\n",
+       "4   2016       4 1960-01-01 00:00:00.000020544 1960-01-01 00:00:00.000020544  20160401.0   9302016.0"
+      ]
+     },
+     "execution_count": 35,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "sas_df_datetime_columns = ['i94yr', 'i94mon', 'arrdate', 'depdate', 'dtadfile', 'dtaddto']\n",
+    "sas_df_type = {\n",
+    "'cicid':'int',\n",
+    "'i94yr':'int',\n",
+    "'i94mon':'int',\n",
+    "'i94cit':'int',\n",
+    "'i94res':'int',\n",
+    "'i94port':'object',\n",
+    "'arrdate':'int',\n",
+    "'i94mode':'object',\n",
+    "'i94addr':'object',\n",
+    "'depdate':'int',\n",
+    "'i94bir':'float64',\n",
+    "'i94visa':'float64',\n",
+    "'count':'int',\n",
+    "'dtadfile':'object',\n",
+    "'visapost':'object',\n",
+    "'occup':'object',\n",
+    "'entdepa':'object',\n",
+    "'entdepd':'object',\n",
+    "'entdepu':'object',\n",
+    "'matflag':'object',\n",
+    "'biryear':'int',\n",
+    "'dtaddto':'object',\n",
+    "'gender':'object',\n",
+    "'insnum':'object',\n",
+    "'airline':'object',\n",
+    "'admnum':'float64',\n",
+    "'fltno':'object',\n",
+    "'visatype':'category'\n",
+    "}\n",
+    "\n",
+    "# Import SAS definition file\n",
+    "from sas_helpers import get_sas_definitions\n",
+    "sasdefs = get_sas_definitions('I94_SAS_Labels_Descriptions.SAS')\n",
+    "\n",
+    "# Note: IN SAS dates are a special case of numeric values. Each day is assigned a specific numeric value starting from 1st January 1960.\n",
+    "# Source: https://www.tutorialspoint.com/sas/sas_dates_times.htm\n",
+    "\n",
+    "# For integer columns\n",
+    "for key, value in sas_df_type.items():\n",
+    "    if value == 'int':\n",
+    "        sas_df[[key]] = sas_df[[key]].fillna(0)\n",
+    "\n",
+    "new_df = sas_df[['i94yr', 'i94mon', 'arrdate', 'depdate', 'dtadfile', 'dtaddto']].copy()\n",
+    "\n",
+    "# For date columns\n",
+    "for key, value in sas_df_type.items():\n",
+    "    if key in ['arrdate', 'depdate']:\n",
+    "        new_df[[key]] = pd.to_datetime(new_df[key], infer_datetime_format=True, errors='coerce', origin=pd.Timestamp('1960-01-01'))\n",
+    "        #sas_df[[key]] = sas_df[key].values.strftime('%Y-%m-%d')\n",
+    "        #new_df[[key]] = pd.to_datetime(sas_df[key], unit='D', origin=pd.Timestamp('1960-01-01'), errors='coerce')\n",
+    "    if key in ['i94yr', 'i94mon']:\n",
+    "        new_df[[key]] = new_df[[key]].astype(int)\n",
+    "    if key in ['dtadfile', 'dtaddto']:\n",
+    "        new_df[[key]] = pd.to_numeric(new_df[key], errors='coerce')\n",
+    "        new_df[[key]] = new_df[[key]].fillna(0)\n",
+    "\n",
+    "\n",
+    "new_df.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "editable": true
+   },
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "\t\n",
+    "from pyspark.sql import SparkSession\n",
+    "spark = SparkSession.builder.\\\n",
+    "config(\"spark.jars.packages\",\"saurfang:spark-sas7bdat:2.0.0-s_2.11\")\\\n",
+    ".enableHiveSupport().getOrCreate()\n",
+    "df_spark =spark.read.format('com.github.saurfang.sas.spark').load('../../data/18-83510-I94-Data-2016/i94_apr16_sub.sas7bdat')\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "metadata": {
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "#write to parquet\n",
+    "df_spark.write.parquet(\"sas_data\")\n",
+    "df_spark=spark.read.parquet(\"sas_data\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "editable": true
+   },
+   "source": [
+    "### Step 2: Explore and Assess the Data\n",
+    "#### Explore the Data \n",
+    "Identify data quality issues, like missing values, duplicate data, etc.\n",
+    "\n",
+    "#### Cleaning Steps\n",
+    "Document steps necessary to clean the data"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "# Performing cleaning tasks here\n",
+    "\n",
+    "\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "editable": true
+   },
+   "source": [
+    "### Step 3: Define the Data Model\n",
+    "#### 3.1 Conceptual Data Model\n",
+    "Map out the conceptual data model and explain why you chose that model\n",
+    "\n",
+    "#### 3.2 Mapping Out Data Pipelines\n",
+    "List the steps necessary to pipeline the data into the chosen data model"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "editable": true
+   },
+   "source": [
+    "### Step 4: Run Pipelines to Model the Data \n",
+    "#### 4.1 Create the data model\n",
+    "Build the data pipelines to create the data model."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "# Write code here"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "editable": true
+   },
+   "source": [
+    "#### 4.2 Data Quality Checks\n",
+    "Explain the data quality checks you'll perform to ensure the pipeline ran as expected. These could include:\n",
+    " * Integrity constraints on the relational database (e.g., unique key, data type, etc.)\n",
+    " * Unit tests for the scripts to ensure they are doing the right thing\n",
+    " * Source/Count checks to ensure completeness\n",
+    " \n",
+    "Run Quality Checks"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "# Perform quality checks here"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "editable": true
+   },
+   "source": [
+    "#### 4.3 Data dictionary \n",
+    "Create a data dictionary for your data model. For each field, provide a brief description of what the data is and where it came from. You can include the data dictionary in the notebook or in a separate file."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "editable": true
+   },
+   "source": [
+    "#### Step 5: Complete Project Write Up\n",
+    "* Clearly state the rationale for the choice of tools and technologies for the project.\n",
+    "* Propose how often the data should be updated and why.\n",
+    "* Write a description of how you would approach the problem differently under the following scenarios:\n",
+    " * The data was increased by 100x.\n",
+    " * The data populates a dashboard that must be updated on a daily basis by 7am every day.\n",
+    " * The database needed to be accessed by 100+ people."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "editable": true
+   },
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "editable": true
+   },
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "editable": true
+   },
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "editable": true
+   },
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "editable": true
+   },
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "editable": true
+   },
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.6.3"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
+}
