@@ -5,7 +5,7 @@ Datasets
 
 The following datasets are included in the project workspace. We purposely did not include a lot of detail about the data and instead point you to the sources. This is to help you get experience doing a self-guided project and researching the data yourself. If something about the data is unclear, make an assumption, document it, and move on. Feel free to enrich your project by gathering and including additional data sources.
 
-**I94 Immigration Data**: This data comes from the US National Tourism and Trade Office. A data dictionary is included in the workspace. This is where the data comes from.
+**I94 Immigration Data**: This data comes from the US National Tourism and Trade Office. A data dictionary is included in the workspace. This is where the data comes from: (https://travel.trade.gov/research/reports/i94/historical/2016.html)
 There's a sample file so you can take a look at the data in csv format before reading it all in.
 
 You do not have to use the entire dataset, just use what you need to accomplish the goal you set at the beginning of the project.
