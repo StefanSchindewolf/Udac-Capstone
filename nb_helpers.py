@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import logging
 import sys
-
+from datetime import datetime
 
 file_name = 'I94_SAS_Labels_Descriptions.SAS'
 
@@ -35,6 +35,7 @@ def get_sas_definitions(file):
     varname = ''
     
     with open(file,mode='r') as f:
+        start_time = datetime.now()
         for line in f.read().splitlines():
             line = line.strip()
             # Recognize data variable descriptions by "/*" at the start of the line
@@ -123,6 +124,8 @@ def get_sas_definitions(file):
                     confline = False
                 else:
                     next
+    elapse = datetime.now() - start_time
+    print('\n\nReading SAS definitions files DONE, time elapsed is {:7.2} sec\n\n'.format(elapse.total_seconds()))
     return data_dict
 
 
@@ -132,91 +135,137 @@ def summarize_data(df, type_choice=None, examples=10):
     # examples = 10
     
     # If type_choice is set, only the dtypes provided will be analysed
+    start_time = datetime.now()
     if type_choice is None:
         # If not set, we simple analyze numeric and string data and
         # print the result
         type_choice = ['all']
-        print('Running Data Quantifier with parameter: ', ', '.join(type_choice),\
-             ' and example threshhold is ', examples)
+        display('''Running Data Quantifier with parameter: '''.format(type_choice), ''' and example threshhold is '''.format(examples))
     else:
-        print('Running Data Quantifier with parameter: ',  ', '.join(type_choice),\
-             ' and example threshhold is ', examples)
+        choices = ', '.join(type_choice)
+        display('''Running Data Quantifier with parameter: '''.format(choices), ''' and example threshhold is '''.format(examples))
     
-    # Analysis section
+    # Quantify Dataframe with NUMERIC DATA
     if (('all' in type_choice) or ('numbers' in type_choice)):
-        # NUMERIC DATA ANALYSIS
+        #  Create a subset with columns in scope           
         sub_df = df.select_dtypes(exclude=['object'])
-        print('\nQuantifying NUMERIC data types in columns:\n',  ', '.join(sub_df.columns), '\n')
+        display('The dataframe has {} rows and {} columns. Godspeed!'.format(sub_df.shape[0], sub_df.shape[1]))
+        display('Quantifying NUMERIC data types in columns:')
+        display(', '.join(sub_df.columns))
         # Get descriptive statistics
-        stat_df = sub_df.describe()
+        stat_df_num = sub_df.describe()
         # Count missing values per column
-        miss_df = pd.DataFrame.from_dict({'Missing': sub_df.isna().sum()})
-        #miss_df = miss_df['Missing'].astype(int)
-        #mis_val_cols = miss_df.loc[miss_df['Missing'] > 0].columns
-        mis_val_cols = miss_df[miss_df > 0].dropna().index
+        miss_df_num = pd.DataFrame.from_dict({'Missing': sub_df.isna().sum()})
+        miss_num = miss_df_num.loc[miss_df_num['Missing'] > 0].dropna().index
         # Count unique values per column
-        uniq_df = pd.DataFrame.from_dict({'Unique': sub_df.nunique()})
-        #uniq_df = uniq_df['Unique'].astype(int)
+        uniq_df_num = pd.DataFrame.from_dict({'Unique': sub_df.nunique()})
         # Get list of example values for columns which have less than x unique values
-        uni_val_cols = uniq_df[uniq_df <= examples].dropna().index
-        uniq_df = uniq_df.transpose()
-        miss_df = miss_df.transpose()
-        stat_df = pd.concat([stat_df, uniq_df, miss_df])
-        display(stat_df)
-        print('Columns with missing values: ', ','.join(mis_val_cols), '\n')
-        for unique_value_column in uni_val_cols:
-            unique_values = df[unique_value_column].drop_duplicates()
-            msg = 'Unique values in column \'{}\': \n'.format(unique_value_column)
-            print(msg, unique_values.values, '\n')
+        uniq_num = uniq_df_num.loc[uniq_df_num['Unique'] <= examples].dropna().index
+        uniq_df_num = uniq_df_num.transpose()
+        miss_df_num = miss_df_num.transpose()
 
+    # Quantify Dataframe with STRING DATA
     if (('all' in type_choice) or ('object' in type_choice)):
-        # STRING DATA ANALYSIS
-        sub_df = df.select_dtypes(exclude=['float64'])
-        print('\nQuantifying NON-NUMERIC data types in columns:\n',  ', '.join(sub_df.columns))
-        stat_df = pd.DataFrame.from_dict(data=dict(sub_df.dtypes), orient='index', columns=['Datatype'])
-        stat_df['Lines'] = len(df)
-        stat_df['Non-Null'] = df.count()
-        stat_df['NaN'] = df.isna().sum()
-        stat_df['Fill-%'] = df.count() / len(df) *100
-        stat_df['Unique'] = df.nunique()
-        stat_df['Uniq-%'] = stat_df['Unique'] / stat_df['Lines'] *100
-        mis_val_cols = list(stat_df.loc[stat_df['Fill-%'] < 100].index)
-        uni_val_cols = list(stat_df.loc[stat_df['Unique'] <= examples].index)
-        display(stat_df.transpose())
-        print('Columns with missing values: ', ','.join(mis_val_cols), '\n')
-        for unique_value_column in uni_val_cols:
-            unique_values = df[unique_value_column].drop_duplicates()
-            msg = 'Unique values in column \'{}\': \n'.format(unique_value_column)
-            print(msg, unique_values.values, '\n')
-    print("\n\nData Quantification Done\n\n")
-    return 0
+        #  Create a subset with columns in scope
+        sub_df = df.select_dtypes(exclude=['float64', 'int64'])
+        display('The dataframe has {} rows and {} columns. Godspeed!'.format(sub_df.shape[0], sub_df.shape[1]))
+        display('Quantifying NON-NUMERIC data types in columns:')
+        display(', '.join(sub_df.columns))
+        stat_df_str = pd.DataFrame.from_dict(data=dict(sub_df.dtypes), orient='index', columns=['Datatype'])
+        # Count lines and missing values
+        stat_df_str['Lines'] = len(df)
+        stat_df_str['Non-Null'] = df.count()
+        stat_df_str['NaN'] = df.isna().sum()
+        stat_df_str['Fill-%'] = df.count() / len(df) *100
+        # Count unique values per column
+        stat_df_str['Unique'] = df.nunique()
+        stat_df_str['Uniq-%'] = stat_df_str['Unique'] / stat_df_str['Lines'] *100
+        mis_val_cols = list(stat_df_str.loc[stat_df_str['Fill-%'] < 100].index)
+        uni_val_cols = list(stat_df_str.loc[stat_df_str['Unique'] <= examples].index)
+        stat_df_str = stat_df_str.transpose()
+    
+    if 'numbers' in type_choice:
+        stat_df = pd.concat([stat_df_num, uniq_df_num, miss_df_num])
+        mis_val_cols = miss_num
+        uni_val_cols = uniq_num
+    elif 'object' in type_choice:
+        stat_df = stat_df_str
+    elif 'all' in type_choice:
+        stat_df = pd.concat([stat_df_num, uniq_df_num, miss_df_num, stat_df_str])
+        mis_val_cols = mis_val_cols.extend(miss_num)
+        uni_val_cols = uni_val_cols.extend(uniq_num)
+    else:
+        pass
+    
+    # Output of results
+    display(stat_df)
+    display('''Columns with missing values:''')
+    display(', '.join(mis_val_cols))
+    display('''Columns with less than {} unique values:'''.format(examples))
+    display(', '.join(uni_val_cols))
+    for column in uni_val_cols:
+        unique_values = df[column].drop_duplicates().dropna()
+        if unique_values.dtype != object:
+            output = ', '.join(["%10.0f" % x for x in unique_values])
+        else:
+            output = ', '.join(unique_values)
+        display('Unique values in column \'{}\': '.format(column))
+        display(output)
+    elapse = datetime.now() - start_time
+    display('Data Quantification Done, time elapsed is {:7.2} sec'.format(elapse.total_seconds()))
+    return None
+
+
+def read_csv_print(file, delim=";"):
+    """ The Read CSV and Print function is a small wrapper around
+        Pandas' read_csv() method.
+        It requires the filename as input. If you have a file with a different
+        separator than ";" you also need to provide this.
+        Then it starts importing, prints a bit of context and
+        Returns: Dataframe from CSV file
+        """
+    from os.path import getsize
+    import pandas as pd
+    from IPython.display import display
+    start_time = datetime.now()
+    fsize = getsize(file) / 1024 / 1024
+    display('START reading CSV file {} of (Filesize: {:7.2} Mb)'.format(file, fsize))
+    csv_df = pd.read_csv(file, sep=delim)
+    display(csv_df.head())
+    elapse = datetime.now() - start_time
+    display('Done. Operation took {:7.2} seconds'.format(elapse.total_seconds()))
+    return csv_df
 
 
 def read_sas_in_chunks(fname=0, fformat=0, max_lines=0, steps=0):
     """DOC STRING"""
     from os.path import getsize
     import pandas as pd
+    start_time = datetime.now()
     #if 0 in ['fname', 'fformat', 'max_lines', 'steps']:
     sas_size = int(getsize(fname) / 1024 / 1024)
     return_df = pd.DataFrame()
     lines_imported = 0
-    print('START reading SAS file {} of (Filesize: {} Mb)'.format(fname, sas_size))
+    display('''START reading SAS file {}, total filesize is: {} Mb'''.format(fname, sas_size))
     # The method _read_sas()_ will read the files in chunks
     sas_reader = pd.read_sas(fname, fformat, encoding='ISO-8859-1', chunksize=steps)
     for chunk in sas_reader:
         last_lines = lines_imported + 1
         lines_imported = lines_imported + len(chunk)
         return_df = return_df.append(chunk)
-        print('\t\t\tImporting lines from {} to {} of total {} lines'.format(last_lines, lines_imported, max_lines))
+        display('''Importing lines from {} to {} of total {} lines'''.format(last_lines, lines_imported, max_lines))
         if lines_imported >= max_lines:
-            print('STOP reading SAS files\n')
+            display('STOP reading SAS files')
             break
             
     # Output and return
-    print('First lines of data and data types:')
-    print(return_df.head())
     return_df_typ = pd.DataFrame(return_df.dtypes).transpose()
-    print(return_df_typ)
+    elapse = datetime.now() - start_time
+    display('''First lines of data and data types:''')
+    display(return_df.head())  
+    display(return_df_typ)
+    display('''DONE reading SAS data in chunks, time elapsed is {:7.2} seconds'''.format(elapse.total_seconds()))
+    
     return return_df
 
 
