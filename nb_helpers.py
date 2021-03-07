@@ -125,7 +125,7 @@ def get_sas_definitions(file):
                 else:
                     next
     elapse = datetime.now() - start_time
-    print('\n\nReading SAS definitions files DONE, time elapsed is {:7.2} sec\n\n'.format(elapse.total_seconds()))
+    print('\n\nReading SAS definitions files DONE, time elapsed is {:7.2f} sec\n\n'.format(elapse.total_seconds()))
     return data_dict
 
 
@@ -222,6 +222,7 @@ def read_csv_print(file, delim=";"):
         It requires the filename as input. If you have a file with a different
         separator than ";" you also need to provide this.
         Then it starts importing, prints a bit of context and
+        
         Returns: Dataframe from CSV file
         """
     from os.path import getsize
@@ -237,8 +238,17 @@ def read_csv_print(file, delim=";"):
     return csv_df
 
 
-def read_sas_in_chunks(fname=0, fformat=0, max_lines=0, steps=0):
-    """DOC STRING"""
+def read_sas_in_chunks(fname=0, fformat='sas7bdat', max_lines=0, steps=0):
+    """ Reads a given SAS file in chunks of given steps up to the given
+        maximum number of lines.
+        Also the file format can be switched using fformat parameter, standard
+        value is 'sas7bdat'.
+        
+        Please keep in mind that entries for maximum lines and the number of
+        lines per chunk have great impact on this functions' runtime.
+        
+        Returns: Dataframe containing SAS data
+        """
     from os.path import getsize
     import pandas as pd
     start_time = datetime.now()
@@ -264,8 +274,47 @@ def read_sas_in_chunks(fname=0, fformat=0, max_lines=0, steps=0):
     display('''First lines of data and data types:''')
     display(return_df.head())  
     display(return_df_typ)
-    display('''DONE reading SAS data in chunks, time elapsed is {:7.2} seconds'''.format(elapse.total_seconds()))
+    display('''DONE reading SAS data in chunks, time elapsed is {:7.2f} seconds'''.format(elapse.total_seconds()))
+    return return_df
+
+
+def non_iso_date_change(df=None, column_list=None):
+    """ DOC STRING
+    """
+    return_df = df
+    if column_list is not None:
+        print('### Changing SAS Date Type to Spark Datetype')
+        for column, pattern in column_list.items():
+            cur_type = return_df.schema[column]
+            return_df = return_df.withColumn(column, F.to_date(F.col(column), pattern))
+            new_type = return_df.schema[column]
+            print('Done, switched column {} from {} to {}'.format(column, cur_type.dataType, new_type.dataType))
+        return return_df
+    else:
+        return None
+
+
+def print_stat(df=None):
+    """ Prints number of rows for given dataframe plus
+        missing entries and unique values for each column
+        
+        Returns: Dataframe with statistics
+        """
+    return_df = pd.DataFrame(columns=['rows', 'unique', 'missing'])
+   
+    # Count all entries
+    entries = df.count()
+    return_df['rows'] = entries
+    print('### Statistics for dataframe \t"{}"'.format(df.name))
+    print('Number of rows in dataframe \t: {} entries'.format(entries))
     
+    # Column counts of missing and unique values
+    for column in df.columns:
+        return_df['unique'] = uniques = df.select(column).distinct().count()    
+        return_df['missing'] = empties = df.filter(df[column].isNull()).count()
+        print(column, ' no. of empty cells: ', empties, ' (', (empties/entries), " %)")
+        print(column, ' no. of unique values: ', uniques, ' (', (uniques/entries), " %)")
+    print('### End of statistics\n')
     return return_df
 
 
