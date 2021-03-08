@@ -251,22 +251,27 @@ def change_nullables(session=None, df=None, column_list=None):
         
         Returns: New dataframe with applied nullable definitions
         """
-    import json
-    
     # Read schema and extract field names
     json_schema = df.schema.jsonValue()['fields']
     # Create a dictionary for the new values:
     new_defs = list()
+    counter = 0
     for dict_line in json_schema:
         header = dict_line['name']
+        #print('Check if ', header, ' is in provided column list')
         # If nullable is to be changed, then do it
         if header in column_list:
+            counter = counter + 1
             dict_line['nullable'] = False
-            print('Changing nullable to "False" for column ', header)
-        new_defs.append(dict_line)
+            new_defs.append(dict_line)
+            #print('Yes: Changing nullable to "False" for column ', header)
+        else:
+            new_defs.append(dict_line)
+            #print('No: Just appending column ', header)   
     new_defs = {'type': 'struct', 'fields': new_defs}
     new_struct = T.StructType.fromJson(new_defs)
     return_df = session.createDataFrame(df.rdd, schema=new_struct)
+    print('Done, Schema changed for ', counter, ' columns.')
     return return_df
 
 
