@@ -4,6 +4,9 @@ import numpy as np
 import logging
 import sys
 from datetime import datetime
+import pyspark.sql.functions as F
+import pyspark.sql.types as T
+
 
 file_name = 'I94_SAS_Labels_Descriptions.SAS'
 
@@ -130,7 +133,10 @@ def get_sas_definitions(file):
 
 
 def summarize_data(df, type_choice=None, examples=10):
-    """ DOC STRING"""
+    """ Create summary statistics for numeric and non-numeric columns for a provided
+        Pandas dataframe.
+        
+        Return: Nothing"""
     # Set number of examples to be printed per value
     # examples = 10
     
@@ -228,6 +234,7 @@ def read_csv_print(file, delim=";"):
     from os.path import getsize
     import pandas as pd
     from IPython.display import display
+    
     start_time = datetime.now()
     fsize = getsize(file) / 1024 / 1024
     display('START reading CSV file {} of (Filesize: {:7.2} Mb)'.format(file, fsize))
@@ -236,6 +243,31 @@ def read_csv_print(file, delim=";"):
     elapse = datetime.now() - start_time
     display('Done. Operation took {:7.2} seconds'.format(elapse.total_seconds()))
     return csv_df
+
+
+def change_nullables(session=None, df=None, column_list=None):
+    """ Takes a dataframe and list of columns as arguments and sets all columns
+        to nullable = False. Then it applies the schema and...
+        
+        Returns: New dataframe with applied nullable definitions
+        """
+    import json
+    
+    # Read schema and extract field names
+    json_schema = df.schema.jsonValue()['fields']
+    # Create a dictionary for the new values:
+    new_defs = list()
+    for dict_line in json_schema:
+        header = dict_line['name']
+        # If nullable is to be changed, then do it
+        if header in column_list:
+            dict_line['nullable'] = False
+            print('Changing nullable to "False" for column ', header)
+        new_defs.append(dict_line)
+    new_defs = {'type': 'struct', 'fields': new_defs}
+    new_struct = T.StructType.fromJson(new_defs)
+    return_df = session.createDataFrame(df.rdd, schema=new_struct)
+    return return_df
 
 
 def read_sas_in_chunks(fname=0, fformat='sas7bdat', max_lines=0, steps=0):
@@ -251,6 +283,7 @@ def read_sas_in_chunks(fname=0, fformat='sas7bdat', max_lines=0, steps=0):
         """
     from os.path import getsize
     import pandas as pd
+    
     start_time = datetime.now()
     #if 0 in ['fname', 'fformat', 'max_lines', 'steps']:
     sas_size = int(getsize(fname) / 1024 / 1024)
