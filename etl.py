@@ -108,15 +108,33 @@ def weighted_average(df=None, mean_column=None, weight_column=None, agg_level=No
     return return_df
 
 
-def create_spark_session():
+def create_spark_session(write_to_s3, config):
     """ This function creates a spark session handler
         Returns: SparkSession
     """
-    spark = SparkSession.builder \
-                    .config("spark.jars.packages","saurfang:spark-sas7bdat:2.0.0-s_2.11") \
-                    .enableHiveSupport() \
-                    .getOrCreate()
-    print(datetime.now(), ' STEP 1 - CREATE SPARK SESSION - DONE')
+    
+    if write_to_s3 is False:
+        spark = SparkSession.builder \
+                        .config("spark.jars.packages","saurfang:spark-sas7bdat:2.1.0-s_2.11") \
+                        .enableHiveSupport() \
+                        .getOrCreate()
+        print(datetime.now(), ' STEP 1 - CREATE SPARK SESSION - DONE')
+    else:
+        aws_key = config.get('AWS', 'AWS_ACCESS_KEY_ID')
+        aws_secret = config.get('AWS', 'AWS_SECRET_ACCESS_KEY')
+        print('Reading credentials : {} {}'.format(aws_key, aws_secret))
+        spark = SparkSession \
+        .builder \
+        .config('spark.jars.packages', 'saurfang:spark-sas7bdat:2.0.0-s_2.11,org.apache.hadoop:hadoop-aws:2.7.2') \
+        .enableHiveSupport() \
+        .getOrCreate()
+        sc = spark.sparkContext
+        sc._jsc.hadoopConfiguration().set("fs.s3a.access.key", aws_key)
+        sc._jsc.hadoopConfiguration().set("fs.s3a.secret.key", aws_secret)
+        sc._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.amazonaws.com")
+        sc._jsc.hadoopConfiguration().set("com.amazonaws.services.s3a.enableV4", "true")
+        sc._jsc.hadoopConfiguration().set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
+        print(datetime.now(), ' STEP 1 - CREATE SPARK SESSION WITH S3 CONTEXT - DONE')
     return spark
 
 
@@ -391,7 +409,7 @@ def process_immigration_data(imm_df, dim_status):
     return immigration_facts
 
 
-def write_to_parquet(df_out, location, name, s3loc=''):
+def write_to_parquet(df_out, location, name, s3loc):
     """ Writes provided dataframe content to parquet files
         Use "location" variable to specify folder/sub-folders
         and "name" for the parquet filename.
@@ -401,7 +419,7 @@ def write_to_parquet(df_out, location, name, s3loc=''):
         Returns: Nothing
     """
     # Put together an output location link
-    location = s3loc +location + name
+    location = s3loc + location + name
     try:
         print('Trying to write {} to location: {}'.format(name, location))
         df_out.write.parquet(location, mode='overwrite', compression='gzip')
@@ -496,7 +514,7 @@ def main():
     # just run `etl.py --sample-size 0.1` and it will take a 10% sample of immigration data
     try:
         argv = sys.argv[1:]
-        opts, args = getopt.getopt(argv, 's:', ['sample-size='])
+        opts, args = getopt.getopt(argv, 's:', ['sample-size=', 'no-qa-check', 's3-store'])
         print(f"Name of the script        : {sys.argv[0]}")
         print(f"Arguments of the script   : {sys.argv[1:]}")
     except getopt.GetoptError as err:
@@ -505,10 +523,18 @@ def main():
         sys.exit(2)
 
     sample_size = None
+    write_to_s3 = False
+    qa_check = True
     for o, p in opts:
         if o in ('-s', '--sample-size'):
             sample_size = float(p)
             print('Setting sample size to: {}'.format(p))
+        if o in ('-aws', '--s3-store'):
+            write_to_s3 = True
+            print('S3 was chosen as data store location, will read link from dl.cfg')
+        if o in ('-q', '--no-qa-check'):
+            qa_check = False
+            print('QA Checks are turned "OFF"')
         else:
             print('No command line arguments given, using default values')
 
@@ -519,7 +545,7 @@ def main():
     s3bucket = config.get('AWS', 'S3_BUCKET')
     
     # Step 1 - Spark Setup
-    session = create_spark_session()
+    session = create_spark_session(write_to_s3, config)
 
     # Step 2 - Download Source Data
     imm_df = get_staging_immigration(session, config, sample_size)
@@ -543,21 +569,27 @@ def main():
     immigration_facts = process_immigration_data(imm_df, dim_status)
 
     # Step 4 - Data Quality check
-    data_quality_check_01(imm_df, immigration_facts, 'cicid', 'cicid')
-    data_quality_check_01(air_df, dim_airports, 'iata_code', 'iata_code')
-    data_quality_check_01(dem_df, dim_demographics, 'state_code', 'state_code')
-    data_quality_check_01(imm_df, dim_time, 'arrdate', 'datestamp')
-    data_quality_check_01(imm_df, dim_time, 'depdate', 'datestamp')
-    data_quality_check_01(imm_df, dim_time, 'dtaddto', 'datestamp')
-    data_quality_check_01(imm_df, dim_time, 'dtadfile', 'datestamp')
+    if qa_check is True:
+        data_quality_check_01(imm_df, immigration_facts, 'cicid', 'cicid')
+        data_quality_check_01(air_df, dim_airports, 'iata_code', 'iata_code')
+        data_quality_check_01(dem_df, dim_demographics, 'state_code', 'state_code')
+        data_quality_check_01(imm_df, dim_time, 'arrdate', 'datestamp')
+        data_quality_check_01(imm_df, dim_time, 'depdate', 'datestamp')
+        data_quality_check_01(imm_df, dim_time, 'dtaddto', 'datestamp')
+        data_quality_check_01(imm_df, dim_time, 'dtadfile', 'datestamp')
     
-    data_quality_check_02(immigration_facts, dim_airports, 'airport', 'iata_code')
-    print(datetime.now(), ' STEP 4 - DATA QUALITY CHECKS - DONE')
+        data_quality_check_02(immigration_facts, dim_airports, 'airport', 'iata_code')
+        print(datetime.now(), ' STEP 4 - DATA QUALITY CHECKS - DONE')
 
     # Step 5 - Write to Parquet
-    for table in [immigration_facts, dim_demographics, dim_airports, dim_time, dim_status]:
-        write_to_parquet(table, parquet_folder, table.name, s3bucket)
-    print(datetime.now(), ' STEP 5 - WRITING TO PARQUET - DONE')
+    if write_to_s3 is False:
+        for table in [immigration_facts, dim_demographics, dim_airports, dim_time, dim_status]:
+            write_to_parquet(table, parquet_folder, table.name, '')
+        print(datetime.now(), ' STEP 5 - WRITING TO PARQUET - DONE')
+    else:
+        for table in [immigration_facts, dim_demographics, dim_airports, dim_time, dim_status]:
+            write_to_parquet(table, parquet_folder, table.name, s3bucket)
+        print(datetime.now(), ' STEP 5 - WRITING TO PARQUET ON S3 - DONE')
     
     # Step 6 - Load to Redshift
     data_load_redshift()
