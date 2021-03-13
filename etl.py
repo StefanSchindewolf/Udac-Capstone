@@ -270,7 +270,7 @@ def process_demographics_data(df, session):
                         .withColumnRenamed('weighted_avg', 'average_household_size')
     
     dim_demographics.name = 'dim_demographics'
-    print(dim_demographics.show(3))
+    print(dim_demographics.show(3), type(dim_demographics))
     print(datetime.now(), ' STEP 3b - DEMOGRAPHICS DIMENSION TABLE - DONE')
     return dim_demographics
 
@@ -297,7 +297,7 @@ def process_airport_data(df):
     dim_airports = dim_airports.drop('coordinates')
     
     dim_airports.name = 'dim_airports'
-    print(dim_airports.show(3))
+    print(dim_airports.show(3), type(dim_airports))
     print(datetime.now(), ' STEP 3a - AIRPORT DIMENSION TABLE - DONE')
     return dim_airports
 
@@ -334,7 +334,7 @@ def process_time_data(df, session):
                 .withColumn('year', F.year('datestamp')) \
                 .dropDuplicates()
     dim_time.name = 'dim_time'
-    print(dim_time.show(3))
+    print(dim_time.show(3), type(dim_time))
     print(datetime.now(), ' STEP 3d - TIME DIMENSION TABLE - DONE')
     return dim_time
 
@@ -355,7 +355,7 @@ def process_status_data(imm_df):
                     .withColumn("status_flag_id", \
                                 F.monotonically_increasing_id())
     dim_status.name = 'dim_status'
-    print(dim_status.show(3))
+    print(dim_status.show(3), type(dim_status))
     print(datetime.now(), ' STEP 3c - STATUS DIMENSION TABLE - DONE')
     return dim_status
 
@@ -404,7 +404,7 @@ def process_immigration_data(imm_df, dim_status):
     # Select the columns and return the dataframe
     immigration_facts = immigration_facts.select(immigration_fact_fields)
     immigration_facts.name = 'immigration_facts'
-    print(immigration_facts.show(3))
+    print(immigration_facts.show(3), type(immigration_facts))
     print(datetime.now(), ' STEP 3e - IMMIGRATION FACT TABLE - DONE')
     return immigration_facts
 
@@ -422,7 +422,7 @@ def write_to_parquet(df_out, location, name, s3loc):
     location = s3loc + location + name
     try:
         print('Trying to write {} to location: {}'.format(name, location))
-        df_out.write.parquet(location, mode='overwrite', compression='gzip')
+        df_out.write.partitionby(part_col).parquet(location, mode='overwrite', compression='gzip')
         print('Done writing')
     except Exception as e:
         print(datetime.now(), ': Writing output files failed: ', e)
@@ -512,6 +512,7 @@ def main():
 
     # For testing purposes you may run this script to work just on a sample
     # just run `etl.py --sample-size 0.1` and it will take a 10% sample of immigration data
+    start_time = datetime.now()
     try:
         argv = sys.argv[1:]
         opts, args = getopt.getopt(argv, 's:', ['sample-size=', 'no-qa-check', 's3-store'])
@@ -565,6 +566,7 @@ def main():
     #    Create time dimension table
     dim_time = process_time_data(imm_df, session)
     
+    
      #    Process Immigration Data
     immigration_facts = process_immigration_data(imm_df, dim_status)
 
@@ -595,6 +597,7 @@ def main():
     data_load_redshift()
 
     # Done, end of etl
+    print(datetime.now(), ' OPERATION FINISHED, RUNTIME IS ', (datetime.now() - start_time))
 
 if __name__ == "__main__":
     main()
